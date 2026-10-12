@@ -1,7 +1,7 @@
 // Garde l'appli dans le téléphone pour qu'elle s'ouvre sans réseau.
 // Changer VERSION à chaque mise en ligne d'une nouvelle version.
-const VERSION = "expertfr-v1";
-const FICHIERS = ["./", "index.html", "app.js", "data.js", "manifest.webmanifest", "icon-192.png", "icon-512.png"];
+const VERSION = "expertfr-v2";
+const FICHIERS = ["./", "index.html", "app.js", "dictee.js", "data.js", "manifest.webmanifest", "icon-192.png", "icon-512.png"];
 
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(FICHIERS)).then(() => self.skipWaiting()));
@@ -18,6 +18,8 @@ self.addEventListener("fetch", e => {
   // Réseau d'abord (pour recevoir les mises à jour), le cache si pas de réseau
   e.respondWith(
     fetch(e.request).then(r => {
+      // Page de connexion (accès protégé expiré) ou erreur : on garde la copie
+      if (!r.ok || r.redirected || new URL(r.url).origin !== location.origin) throw new Error("hors appli");
       const copie = r.clone();
       caches.open(VERSION).then(c => c.put(e.request, copie));
       return r;

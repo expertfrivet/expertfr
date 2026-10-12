@@ -37,7 +37,7 @@ textarea{min-height:70px}
 .cl>div:first-child{flex:1;min-width:0}
 .badge{font-size:11px;padding:3px 8px;border-radius:10px;white-space:nowrap;background:#EFF2F6;color:var(--muted)}
 .tabs{display:flex;gap:6px;margin:-12px -14px 12px;padding:10px 14px;position:sticky;top:52px;z-index:4;background:var(--bg)}
-.tabs button{flex:1;padding:9px 4px;border-radius:9px;border:1px solid var(--line);background:#fff;font:inherit;font-size:14px;color:var(--navy)}
+.tabs button{flex:1;padding:9px 4px;border-radius:9px;border:1px solid var(--line);background:#fff;font:inherit;font-size:13px;white-space:nowrap;color:var(--navy)}
 .tabs button.on{background:var(--navy);color:#fff;border-color:var(--navy)}
 .total{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px dashed var(--line)}
 .total.big{font-size:20px;font-weight:700;border:0;color:var(--navy)}
@@ -63,6 +63,14 @@ summary span:first-child{flex:1}
 .empty{text-align:center;color:var(--muted);padding:30px 10px}
 .toast{position:fixed;left:50%;bottom:80px;transform:translateX(-50%);background:var(--navy);color:#fff;padding:10px 16px;border-radius:20px;font-size:14px;z-index:9;opacity:0;transition:opacity .3s;pointer-events:none;max-width:90%}
 .toast.show{opacity:1}
+.rec{text-align:center}
+.rec .temps{font-size:44px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--navy);margin:6px 0}
+.rec .etat{font-size:14px;color:var(--muted)}
+.rec.on .temps{color:#c0262d}
+.btn.rouge{background:#c0262d;border-color:#c0262d}
+#barre-rec{position:fixed;left:0;right:0;bottom:calc(58px + env(safe-area-inset-bottom));background:#c0262d;color:#fff;text-align:center;padding:8px;font-size:14px;z-index:6}
+.dic{display:flex;flex-direction:column;gap:6px;padding:10px 0;border-top:1px solid var(--line)}
+.dic audio{width:100%}
 </style>
 </head>
 <body>
@@ -78,8 +86,10 @@ summary span:first-child{flex:1}
   <button data-go="reglages"><b>⚙️</b>Réglages</button>
 </nav>
 <div class="toast" id="toast"></div>
+<div id="barre-rec" hidden></div>
 <script src="data.js"></script>
 <script src="app.js"></script>
+<script src="dictee.js"></script>
 <script async defer src="https://accounts.google.com/gsi/client" onload="window.gisPret=true"></script>
 </body>
 </html>

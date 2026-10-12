@@ -158,6 +158,7 @@ async function synchroniser(manuel) {
     persister();
     ecrire(LS.last, { ok: true, heure: heure(), msg: `${visibles().length} fiche(s)` });
     if (dirty.size) planifierSync();
+    if (window.envoyerDictees) envoyerDictees();   // enregistrements du dictaphone (dictee.js)
     rafraichirSiPossible();
   } catch (e) {
     const msg = e.message === "reconnexion" ? "Reconnexion Google nécessaire" : e.message;
@@ -173,7 +174,7 @@ function heure() { return new Date().toLocaleTimeString("fr-FR", { hour: "2-digi
 function afficherSync() {
   const b = document.getElementById("sync");
   const last = lire(LS.last, null);
-  const n = dirty.size;
+  const n = dirty.size + (window.nbDicteesAttente || 0);
   b.className = "";
   if (syncEnCours) b.textContent = "⏳ Synchro…";
   else if (!cfg.folder || !cfg.clientId) { b.textContent = "⚙️ Synchro à régler"; b.className = "err"; }
@@ -281,12 +282,13 @@ function rendreFiche(r) {
   const c = parUid(r.uid);
   if (!c || c.supprime) { location.hash = "#/clients"; return; }
   document.getElementById("title").textContent = `${c.nom || ""} ${c.prenom || ""}`;
-  const onglets = [["fiche", "📋 Fiche"], ["devis", "💶 Devis"], ["checklist", "✅ Checklist"]];
+  const onglets = [["fiche", "📋 Fiche"], ["devis", "💶 Devis"], ["checklist", "✅ Liste"], ["dictee", "🎤 Dictée"]];
   $main.innerHTML = `<div class="tabs">${onglets.map(([k, l]) => `<button data-t="${k}" class="${r.onglet === k ? "on" : ""}">${l}</button>`).join("")}</div><div id="contenu"></div>`;
   $main.querySelectorAll(".tabs button").forEach(b => b.onclick = () => history.replaceState(null, "", `#/fiche/${c.uid}/${b.dataset.t}`) || rendre());
   const $c = document.getElementById("contenu");
   if (r.onglet === "devis") rendreDevis(c, $c);
   else if (r.onglet === "checklist") rendreChecklist(c, $c);
+  else if (r.onglet === "dictee") rendreDictee(c, $c);
   else {
     const adr = [c.adresse_site || c.adresse, c.cp_site || c.cp, c.ville_site || c.ville].filter(Boolean).join(" ");
     $c.innerHTML = `
@@ -461,5 +463,5 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden) sync
 setInterval(() => synchroniser(false), 120000);
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
-rendre();
-synchroniser(false);
+// Après le chargement de tous les scripts (dictee.js compris)
+window.addEventListener("DOMContentLoaded", () => { rendre(); synchroniser(false); });
