@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1B2A41">
+<title>ExpertFR</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+:root{--navy:#1B2A41;--gold:#C8A96E;--bg:#F5F6F8;--card:#fff;--line:#DDE2E8;--txt:#1B2A41;--muted:#6B7A8D;--ok:#15803d;--warn:#b45309;--err:#991b1b}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--txt);font:16px/1.4 -apple-system,system-ui,"Segoe UI",Roboto,sans-serif}
+header{position:sticky;top:0;z-index:5;background:var(--navy);color:#fff;padding:10px 14px calc(10px) 14px;padding-top:max(10px,env(safe-area-inset-top));display:flex;align-items:center;gap:10px}
+header h1{font-size:18px;margin:0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+header button{background:none;border:0;color:#fff;font-size:22px;padding:4px 6px}
+#sync{font-size:12px;padding:4px 10px;border-radius:12px;background:rgba(255,255,255,.12);color:#fff;border:0;white-space:nowrap}
+#sync.pending{background:var(--gold);color:var(--navy)}
+#sync.err{background:#fee2e2;color:var(--err)}
+main{padding:12px 14px 90px;max-width:720px;margin:0 auto}
+nav{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--line);display:flex;padding-bottom:env(safe-area-inset-bottom);z-index:5}
+nav button{flex:1;background:none;border:0;padding:10px 0 8px;font-size:12px;color:var(--muted)}
+nav button b{display:block;font-size:20px;font-weight:normal}
+nav button.on{color:var(--navy);font-weight:600}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:12px}
+.row{display:flex;gap:10px}.row>*{flex:1;min-width:0}
+label{display:block;font-size:13px;color:var(--muted);margin:8px 0 3px}
+input,select,textarea{width:100%;font:inherit;padding:10px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--txt)}
+textarea{min-height:70px}
+.btn{display:block;width:100%;padding:12px;border-radius:10px;border:1px solid var(--navy);background:var(--navy);color:#fff;font:inherit;font-weight:600;margin-top:10px;text-align:center;text-decoration:none}
+.btn.light{background:#fff;color:var(--navy)}
+.btn.danger{background:#fff;color:var(--err);border-color:#f3c4c4}
+.search{position:sticky;top:58px;z-index:4;background:var(--bg);padding-bottom:8px}
+.cl{display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px}
+.cl .n{font-weight:600}.cl .s{font-size:13px;color:var(--muted)}
+.cl>div:first-child{flex:1;min-width:0}
+.badge{font-size:11px;padding:3px 8px;border-radius:10px;white-space:nowrap;background:#EFF2F6;color:var(--muted)}
+.tabs{display:flex;gap:6px;margin:-12px -14px 12px;padding:10px 14px;position:sticky;top:52px;z-index:4;background:var(--bg)}
+.tabs button{flex:1;padding:9px 4px;border-radius:9px;border:1px solid var(--line);background:#fff;font:inherit;font-size:14px;color:var(--navy)}
+.tabs button.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+.total{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px dashed var(--line)}
+.total.big{font-size:20px;font-weight:700;border:0;color:var(--navy)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{padding:7px 10px;border-radius:16px;border:1px solid var(--line);background:#fff;font-size:13px;color:var(--navy)}
+.chip.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+.bar{height:10px;background:#E6EAF0;border-radius:6px;overflow:hidden;margin:6px 0}
+.bar i{display:block;height:100%;background:var(--gold)}
+details{background:#fff;border:1px solid var(--line);border-radius:12px;margin-bottom:8px;overflow:hidden}
+summary{list-style:none;padding:12px;background:#EFF2F6;color:var(--navy);font-weight:600;display:flex;gap:8px;align-items:center}
+summary::-webkit-details-marker{display:none}
+summary span:first-child{flex:1}
+.it{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-top:1px solid var(--line)}
+.it .t{flex:1}
+.it .box{width:24px;height:24px;border:2px solid var(--navy);border-radius:6px;flex:none;display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px}
+.it.done .box{background:var(--ok);border-color:var(--ok)}
+.it.done .t{color:var(--muted);text-decoration:line-through}
+.it.na .t{color:#aab3bf;text-decoration:line-through}
+.it.na .box{border-color:#cfd6df}
+.it .x{background:none;border:0;color:#9aa5b1;font-size:18px;padding:0 4px}
+.warn{color:var(--warn);font-size:13px;margin-top:6px}
+.muted{color:var(--muted);font-size:13px}
+.empty{text-align:center;color:var(--muted);padding:30px 10px}
+.toast{position:fixed;left:50%;bottom:80px;transform:translateX(-50%);background:var(--navy);color:#fff;padding:10px 16px;border-radius:20px;font-size:14px;z-index:9;opacity:0;transition:opacity .3s;pointer-events:none;max-width:90%}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+<header>
+  <button id="back" hidden aria-label="Retour">‹</button>
+  <h1 id="title">ExpertFR</h1>
+  <button id="sync" type="button">…</button>
+</header>
+<main id="main"></main>
+<nav>
+  <button data-go="clients" class="on"><b>👥</b>Clients</button>
+  <button data-go="nouveau"><b>➕</b>Nouveau</button>
+  <button data-go="reglages"><b>⚙️</b>Réglages</button>
+</nav>
+<div class="toast" id="toast"></div>
+<script src="data.js"></script>
+<script src="app.js"></script>
+<script async defer src="https://accounts.google.com/gsi/client" onload="window.gisPret=true"></script>
+</body>
+</html>
