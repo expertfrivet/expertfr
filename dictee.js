@@ -71,7 +71,7 @@ async function demarrer(c) {
   }
   const mime = typeAudio();
   const mr = new MediaRecorder(stream, mime ? { mimeType: mime, audioBitsPerSecond: 32000 } : {});
-  const d = { id: newUid(), uid: c.uid, dossier: c.dossier || "", nom: `${c.nom || ""} ${c.prenom || ""}`.trim(),
+  const d = { id: newUid(), uid: c.uid, dossier: refDossier(c), nom: `${c.nom || ""} ${c.prenom || ""}`.trim(),
               debut: new Date().toISOString(), duree: 0, mime: mr.mimeType || mime || "audio/webm", etat: "enregistrement" };
   await dicteeMaj(d);
   rec = { mr, stream, d, n: 0, cumul: 0, depuis: Date.now(), ecritures: Promise.resolve(), wake: null };
@@ -177,18 +177,24 @@ async function envoyerFichier(blob, type, nom, parent, properties) {
   return (await r2.json()).id;
 }
 
-// Dossier Drive du client (« R202610001 - DUPONT Jean »), créé à la première photo ou dictée
+// Dossier Drive de l'expertise (« R202610001 - DUPONT Jean - Expertise 1 »), créé à la
+// première photo ou dictée. Un ancien dossier sans « - Expertise N » compte comme l'expertise 1.
+const numDossierDrive = nom => { const m = /- Expertise (\d+)\s*$/.exec(nom || ""); return m ? +m[1] : 1; };
 const _dossiersEnCours = {};
 async function dossierClient(c) {
   if (c.drive_dossier) return c.drive_dossier;
   if (_dossiersEnCours[c.uid]) return _dossiersEnCours[c.uid];
   return (_dossiersEnCours[c.uid] = (async () => {
     const base = "https://www.googleapis.com/drive/v3/files";
-    const q = encodeURIComponent(`'${cfg.folder}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false and properties has { key='fiche' and value='${c.uid}' }`);
-    const trouve = await (await api(`${base}?q=${q}&fields=files(id)&supportsAllDrives=true&includeItemsFromAllDrives=true`)).json();
-    let id = trouve.files && trouve.files[0] && trouve.files[0].id;
+    // Retrouvé par l'appli (propriété « fiche ») ou créé par le PC (nom « R202610001 - … »)
+    const parNom = c.dossier ? ` or name contains '${c.dossier.replace(/'/g, "")} - '` : "";
+    const q = encodeURIComponent(`'${cfg.folder}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false and (properties has { key='fiche' and value='${c.uid}' }${parNom})`);
+    const trouve = (await (await api(`${base}?q=${q}&fields=files(id,name,properties)&supportsAllDrives=true&includeItemsFromAllDrives=true`)).json()).files || [];
+    const bon = trouve.find(f => (f.properties || {}).fiche === c.uid)
+             || trouve.find(f => numDossierDrive(f.name) === numExp(c) && f.name.startsWith(`${c.dossier} - `));
+    let id = bon && bon.id;
     if (!id) {
-      const nom = `${c.dossier || "Sans numéro"} - ${c.nom || ""} ${c.prenom || ""}`.trim();
+      const nom = `${c.dossier || "Sans numéro"} - ${c.nom || ""} ${c.prenom || ""}`.trim() + ` - Expertise ${numExp(c)}`;
       id = (await (await api(`${base}?supportsAllDrives=true&fields=id`, {
         method: "POST", headers: { "Content-Type": "application/json; charset=UTF-8" },
         body: JSON.stringify({ name: nom, mimeType: "application/vnd.google-apps.folder", parents: [cfg.folder],

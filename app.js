@@ -70,6 +70,23 @@ function fusionner(local, distant) {
   return ordre.map(u => par.get(u));
 }
 
+// Un client peut avoir plusieurs expertises sous le même n° de dossier
+// (1re visite, puis contradictoire…) : une fiche par expertise, numérotée 1, 2, 3…
+function numExp(c) { return Math.max(1, parseInt(c.expertise, 10) || 1); }
+function refDossier(c) { return (c.dossier || "") + (numExp(c) > 1 ? "-E" + numExp(c) : ""); }   // noms de fichiers
+function expertises(c) {
+  return c.dossier ? visibles().filter(x => x.dossier === c.dossier).sort((a, b) => numExp(a) - numExp(b)) : [c];
+}
+
+function nouvelleExpertise(c) {
+  const n = 1 + Math.max(...expertises(c).map(numExp));
+  const e = { uid: newUid(), date: new Date().toLocaleDateString("fr-FR"), statut: "En attente", expertise: n };
+  for (const k of ["dossier", "nom", "prenom", "societe", "tel", "mail", "adresse", "cp", "ville",
+                   "adresse_site", "cp_site", "ville_site", "objet"]) if (c[k]) e[k] = c[k];
+  enregistrer(e);
+  return e;
+}
+
 function prochainDossier() {
   const d = new Date();
   const prefix = "R" + d.getFullYear() + String(d.getMonth() + 1).padStart(2, "0");
@@ -224,16 +241,22 @@ function badge(statut) { return `<span class="badge">${esc(statut || "En attente
 function rendreListe() {
   document.getElementById("title").textContent = "ExpertFR";
   const q = recherche.toLowerCase();
-  const doublons = {};
-  visibles().forEach(c => { if (c.dossier) doublons[c.dossier] = (doublons[c.dossier] || 0) + 1; });
-  const liste = visibles().slice().reverse().filter(c =>
+  const doublons = {}, derniere = {};
+  visibles().forEach(c => {
+    if (!c.dossier) return;
+    const k = c.dossier + "|" + numExp(c);
+    doublons[k] = (doublons[k] || 0) + 1;
+    if (!derniere[c.dossier] || numExp(c) > numExp(derniere[c.dossier])) derniere[c.dossier] = c;
+  });
+  // Une ligne par dossier : la dernière expertise, les autres s'ouvrent depuis la fiche
+  const liste = visibles().slice().reverse().filter(c => !c.dossier || derniere[c.dossier] === c).filter(c =>
     `${c.nom || ""} ${c.prenom || ""} ${c.ville || ""} ${c.dossier || ""} ${c.societe || ""}`.toLowerCase().includes(q));
   $main.innerHTML = `
     <div class="search"><input id="q" type="search" placeholder="🔎 Rechercher (nom, ville, n°…)" value="${esc(recherche)}"></div>
     ${liste.length ? liste.map(c => `
       <div class="cl" data-uid="${esc(c.uid)}">
         <div><div class="n">${esc(c.nom)} ${esc(c.prenom)}</div>
-        <div class="s">${esc(c.dossier || "sans n°")}${doublons[c.dossier] > 1 ? " ⚠ n° en double" : ""} · ${esc(c.ville_site || c.ville || "")}</div></div>
+        <div class="s">${esc(c.dossier || "sans n°")}${numExp(c) > 1 ? ` · ${numExp(c)} expertises` : ""}${doublons[c.dossier + "|" + numExp(c)] > 1 ? " ⚠ n° en double" : ""} · ${esc(c.ville_site || c.ville || "")}</div></div>
         ${badge(c.statut)}
       </div>`).join("") : `<div class="empty">${visibles().length ? "Aucun résultat" : "Aucune fiche pour l'instant.<br>Touchez ➕ Nouveau, ou synchronisez pour récupérer celles du PC."}</div>`}`;
   const inp = document.getElementById("q");
@@ -283,7 +306,16 @@ function rendreFiche(r) {
   if (!c || c.supprime) { location.hash = "#/clients"; return; }
   document.getElementById("title").textContent = `${c.nom || ""} ${c.prenom || ""}`;
   const onglets = [["fiche", "📋 Fiche"], ["devis", "💶 Devis"], ["checklist", "✅ Liste"], ["photos", "📷 Photos"], ["dictee", "🎤 Dictée"]];
-  $main.innerHTML = `<div class="tabs">${onglets.map(([k, l]) => `<button data-t="${k}" class="${r.onglet === k ? "on" : ""}">${l}</button>`).join("")}</div><div id="contenu"></div>`;
+  const exps = expertises(c);
+  const barre = `<div class="chips exps">${exps.map(e => `<button class="chip${e.uid === c.uid ? " on" : ""}" data-e="${esc(e.uid)}">Expertise ${numExp(e)} · ${esc(e.statut || "En attente")}</button>`).join("")}
+    ${c.dossier ? `<button class="chip" id="newexp">➕ Expertise</button>` : ""}</div>`;
+  $main.innerHTML = `${barre}<div class="tabs">${onglets.map(([k, l]) => `<button data-t="${k}" class="${r.onglet === k ? "on" : ""}">${l}</button>`).join("")}</div><div id="contenu"></div>`;
+  $main.querySelectorAll("[data-e]").forEach(b => b.onclick = () => { location.hash = `#/fiche/${b.dataset.e}/${r.onglet}`; });
+  const $ne = document.getElementById("newexp");
+  if ($ne) $ne.onclick = () => {
+    if (!confirm(`Créer l'expertise ${1 + Math.max(...exps.map(numExp))} pour ${c.nom} ${c.prenom || ""} (n° ${c.dossier}) ?\nElle aura son propre statut, devis, checklist, photos et dictées.`)) return;
+    location.hash = `#/fiche/${nouvelleExpertise(c).uid}`;
+  };
   $main.querySelectorAll(".tabs button").forEach(b => b.onclick = () => history.replaceState(null, "", `#/fiche/${c.uid}/${b.dataset.t}`) || rendre());
   const $c = document.getElementById("contenu");
   if (r.onglet === "devis") rendreDevis(c, $c);
@@ -304,7 +336,7 @@ function rendreFiche(r) {
       <button class="btn danger" id="del">🗑️ Supprimer la fiche</button>`;
     brancherForm(c, false);
     document.getElementById("del").onclick = () => {
-      if (confirm(`Supprimer définitivement la fiche ${c.nom} ${c.prenom || ""} (ici et sur le PC) ?`)) { supprimer(c); location.hash = "#/clients"; }
+      if (confirm(`Supprimer définitivement la fiche ${c.nom} ${c.prenom || ""}${exps.length > 1 ? ` (expertise ${numExp(c)} seulement)` : ""} (ici et sur le PC) ?`)) { supprimer(c); location.hash = "#/clients"; }
     };
   }
 }

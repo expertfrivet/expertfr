@@ -32,7 +32,7 @@ async function ajouterPhotos(c, fichiers) {
     try {
       const blob = await reduire(f, 2560, 0.85);
       const vignette = await reduire(f, 360, 0.7);
-      await photoMaj({ id: newUid(), uid: c.uid, dossier: c.dossier || "", nom: `${c.nom || ""} ${c.prenom || ""}`.trim(),
+      await photoMaj({ id: newUid(), uid: c.uid, dossier: refDossier(c), nom: `${c.nom || ""} ${c.prenom || ""}`.trim(),
                        date: new Date(f.lastModified || Date.now()).toISOString(), ajout: new Date().toISOString(),
                        blob, vignette, etat: "attente" });
       n++;

@@ -1,6 +1,6 @@
 // Garde l'appli dans le téléphone pour qu'elle s'ouvre sans réseau.
 // Changer VERSION à chaque mise en ligne d'une nouvelle version.
-const VERSION = "expertfr-v4";
+const VERSION = "expertfr-v6";
 const FICHIERS = ["./", "index.html", "app.js", "dictee.js", "photos.js", "data.js", "manifest.webmanifest", "icon-192.png", "icon-512.png"];
 
 self.addEventListener("install", e => {
