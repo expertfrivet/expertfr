@@ -12,10 +12,12 @@ let _db = null;
 function db() {
   if (_db) return _db;
   _db = new Promise((resolve, reject) => {
-    const req = indexedDB.open("expertfr", 1);
+    const req = indexedDB.open("expertfr", 2);
     req.onupgradeneeded = () => {
-      req.result.createObjectStore("dictees", { keyPath: "id" });
-      req.result.createObjectStore("morceaux", { keyPath: ["rec", "n"] });
+      const base = req.result, existe = n => base.objectStoreNames.contains(n);
+      if (!existe("dictees")) base.createObjectStore("dictees", { keyPath: "id" });
+      if (!existe("morceaux")) base.createObjectStore("morceaux", { keyPath: ["rec", "n"] });
+      if (!existe("photos")) base.createObjectStore("photos", { keyPath: "id" });   // photos.js
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
@@ -148,7 +150,8 @@ let envoiEnCours = false;
 window.nbDicteesAttente = 0;
 
 async function compterAttente() {
-  window.nbDicteesAttente = (await dicteesToutes()).filter(d => d.etat === "attente").length;
+  const photos = await idb("photos", "readonly", s => s.getAll());
+  window.nbDicteesAttente = [...await dicteesToutes(), ...photos].filter(d => d.etat === "attente").length;
   if (typeof afficherSync === "function") afficherSync();
 }
 
@@ -160,6 +163,44 @@ function nomFichier(d) {
   return `Dictee_${d.dossier || "sans-numero"}_${nom}_${date}.${extension(d.mime)}`;
 }
 
+// Envoi d'un fichier dans Drive (envoi « resumable » : marche aussi pour les gros fichiers)
+async function envoyerFichier(blob, type, nom, parent, properties) {
+  const r = await api("https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&supportsAllDrives=true&fields=id", {
+    method: "POST",
+    headers: { "Content-Type": "application/json; charset=UTF-8", "X-Upload-Content-Type": type, "X-Upload-Content-Length": String(blob.size) },
+    body: JSON.stringify({ name: nom, parents: [parent], mimeType: type, properties }),
+  });
+  const lieu = r.headers.get("Location");
+  if (!lieu) throw new Error("Drive n'a pas donné d'adresse d'envoi");
+  const r2 = await fetch(lieu, { method: "PUT", headers: { "Content-Type": type }, body: blob });
+  if (!r2.ok) throw new Error("Envoi vers Drive impossible (" + r2.status + ")");
+  return (await r2.json()).id;
+}
+
+// Dossier Drive du client (« R202610001 - DUPONT Jean »), créé à la première photo ou dictée
+const _dossiersEnCours = {};
+async function dossierClient(c) {
+  if (c.drive_dossier) return c.drive_dossier;
+  if (_dossiersEnCours[c.uid]) return _dossiersEnCours[c.uid];
+  return (_dossiersEnCours[c.uid] = (async () => {
+    const base = "https://www.googleapis.com/drive/v3/files";
+    const q = encodeURIComponent(`'${cfg.folder}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false and properties has { key='fiche' and value='${c.uid}' }`);
+    const trouve = await (await api(`${base}?q=${q}&fields=files(id)&supportsAllDrives=true&includeItemsFromAllDrives=true`)).json();
+    let id = trouve.files && trouve.files[0] && trouve.files[0].id;
+    if (!id) {
+      const nom = `${c.dossier || "Sans numéro"} - ${c.nom || ""} ${c.prenom || ""}`.trim();
+      id = (await (await api(`${base}?supportsAllDrives=true&fields=id`, {
+        method: "POST", headers: { "Content-Type": "application/json; charset=UTF-8" },
+        body: JSON.stringify({ name: nom, mimeType: "application/vnd.google-apps.folder", parents: [cfg.folder],
+                               properties: { expertfr: "client", fiche: c.uid } }),
+      })).json()).id;
+    }
+    const f = parUid(c.uid);
+    if (f && !f.supprime) { f.drive_dossier = id; enregistrer(f); }
+    return id;
+  })().finally(() => { delete _dossiersEnCours[c.uid]; }));
+}
+
 async function envoyerDictees() {
   if (envoiEnCours || !navigator.onLine || !cfg.folder || !jetonValide()) return;
   envoiEnCours = true;
@@ -167,18 +208,11 @@ async function envoyerDictees() {
     for (const d of await dicteesToutes()) {
       if (d.etat !== "attente" || !d.blob) continue;
       const type = d.mime.split(";")[0];
-      const meta = { name: nomFichier(d), parents: [cfg.folder], mimeType: type,
-                     properties: { expertfr: "dictee", fiche: d.uid, dossier: d.dossier } };
-      const r = await api("https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&supportsAllDrives=true&fields=id", {
-        method: "POST",
-        headers: { "Content-Type": "application/json; charset=UTF-8", "X-Upload-Content-Type": type, "X-Upload-Content-Length": String(d.blob.size) },
-        body: JSON.stringify(meta),
-      });
-      const lieu = r.headers.get("Location");
-      if (!lieu) throw new Error("Drive n'a pas donné d'adresse d'envoi");
-      const r2 = await fetch(lieu, { method: "PUT", headers: { "Content-Type": type }, body: d.blob });
-      if (!r2.ok) throw new Error("Envoi de la dictée : Drive " + r2.status);
-      const { id } = await r2.json();
+      const fiche = parUid(d.uid);
+      const parent = fiche && !fiche.supprime ? await dossierClient(fiche) : cfg.folder;
+      const meta = { name: nomFichier(d) };
+      const id = await envoyerFichier(d.blob, type, meta.name, parent,
+                                      { expertfr: "dictee", fiche: d.uid, dossier: d.dossier });
       // Noté dans la fiche : le PC sait à quel dossier appartient la dictée
       const c = parUid(d.uid);
       if (c && !c.supprime) {
@@ -198,6 +232,7 @@ async function envoyerDictees() {
     await compterAttente();
     rafraichirDictee();
   }
+  if (window.envoyerPhotos) envoyerPhotos();
 }
 
 // ── Onglet Dictée d'une fiche ─────────────────────────────────────────────

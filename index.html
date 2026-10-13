@@ -37,7 +37,7 @@ textarea{min-height:70px}
 .cl>div:first-child{flex:1;min-width:0}
 .badge{font-size:11px;padding:3px 8px;border-radius:10px;white-space:nowrap;background:#EFF2F6;color:var(--muted)}
 .tabs{display:flex;gap:6px;margin:-12px -14px 12px;padding:10px 14px;position:sticky;top:52px;z-index:4;background:var(--bg)}
-.tabs button{flex:1;padding:9px 4px;border-radius:9px;border:1px solid var(--line);background:#fff;font:inherit;font-size:13px;white-space:nowrap;color:var(--navy)}
+.tabs button{flex:1;padding:9px 2px;border-radius:9px;border:1px solid var(--line);background:#fff;font:inherit;font-size:12px;white-space:nowrap;color:var(--navy)}
 .tabs button.on{background:var(--navy);color:#fff;border-color:var(--navy)}
 .total{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px dashed var(--line)}
 .total.big{font-size:20px;font-weight:700;border:0;color:var(--navy)}
@@ -71,6 +71,12 @@ summary span:first-child{flex:1}
 #barre-rec{position:fixed;left:0;right:0;bottom:calc(58px + env(safe-area-inset-bottom));background:#c0262d;color:#fff;text-align:center;padding:8px;font-size:14px;z-index:6}
 .dic{display:flex;flex-direction:column;gap:6px;padding:10px 0;border-top:1px solid var(--line)}
 .dic audio{width:100%}
+.grille{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.vig{position:relative;aspect-ratio:1;border-radius:8px;overflow:hidden;background:#E6EAF0}
+.vig img{width:100%;height:100%;object-fit:cover;display:block}
+.vig .badge{position:absolute;left:4px;bottom:4px;background:rgba(255,255,255,.9)}
+.vig .x{position:absolute;right:2px;top:2px;background:rgba(255,255,255,.9);border-radius:12px;color:var(--err)}
+label.btn{cursor:pointer;display:flex;align-items:center;justify-content:center}
 </style>
 </head>
 <body>
@@ -90,6 +96,7 @@ summary span:first-child{flex:1}
 <script src="data.js"></script>
 <script src="app.js"></script>
 <script src="dictee.js"></script>
+<script src="photos.js"></script>
 <script async defer src="https://accounts.google.com/gsi/client" onload="window.gisPret=true"></script>
 </body>
 </html>

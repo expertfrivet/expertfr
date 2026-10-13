@@ -282,20 +282,24 @@ function rendreFiche(r) {
   const c = parUid(r.uid);
   if (!c || c.supprime) { location.hash = "#/clients"; return; }
   document.getElementById("title").textContent = `${c.nom || ""} ${c.prenom || ""}`;
-  const onglets = [["fiche", "📋 Fiche"], ["devis", "💶 Devis"], ["checklist", "✅ Liste"], ["dictee", "🎤 Dictée"]];
+  const onglets = [["fiche", "📋 Fiche"], ["devis", "💶 Devis"], ["checklist", "✅ Liste"], ["photos", "📷 Photos"], ["dictee", "🎤 Dictée"]];
   $main.innerHTML = `<div class="tabs">${onglets.map(([k, l]) => `<button data-t="${k}" class="${r.onglet === k ? "on" : ""}">${l}</button>`).join("")}</div><div id="contenu"></div>`;
   $main.querySelectorAll(".tabs button").forEach(b => b.onclick = () => history.replaceState(null, "", `#/fiche/${c.uid}/${b.dataset.t}`) || rendre());
   const $c = document.getElementById("contenu");
   if (r.onglet === "devis") rendreDevis(c, $c);
   else if (r.onglet === "checklist") rendreChecklist(c, $c);
   else if (r.onglet === "dictee") rendreDictee(c, $c);
+  else if (r.onglet === "photos") rendrePhotos(c, $c);
   else {
-    const adr = [c.adresse_site || c.adresse, c.cp_site || c.cp, c.ville_site || c.ville].filter(Boolean).join(" ");
+    // L'expertise se fait sur le chantier : son adresse d'abord, celle du client sinon
+    const chantier = [c.adresse_site, c.cp_site, c.ville_site].filter(Boolean).join(" ");
+    const adr = chantier || [c.adresse, c.cp, c.ville].filter(Boolean).join(" ");
     $c.innerHTML = `
       <div class="row">
         ${c.tel ? `<a class="btn light" href="tel:${esc(c.tel.replace(/\s/g, ""))}">📞 Appeler</a>` : ""}
         ${adr ? `<a class="btn light" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(adr)}">🗺️ Itinéraire</a>` : ""}
       </div>
+      ${adr ? `<p class="muted" style="margin:6px 2px 10px">🗺️ Itinéraire vers ${chantier ? "le chantier" : "l'adresse du client"} : ${esc(adr)}</p>` : ""}
       <div class="card">${formFiche(c)}</div>
       <button class="btn danger" id="del">🗑️ Supprimer la fiche</button>`;
     brancherForm(c, false);

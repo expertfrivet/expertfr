@@ -1,7 +1,7 @@
 // Garde l'appli dans le téléphone pour qu'elle s'ouvre sans réseau.
 // Changer VERSION à chaque mise en ligne d'une nouvelle version.
-const VERSION = "expertfr-v2";
-const FICHIERS = ["./", "index.html", "app.js", "dictee.js", "data.js", "manifest.webmanifest", "icon-192.png", "icon-512.png"];
+const VERSION = "expertfr-v4";
+const FICHIERS = ["./", "index.html", "app.js", "dictee.js", "photos.js", "data.js", "manifest.webmanifest", "icon-192.png", "icon-512.png"];
 
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(FICHIERS)).then(() => self.skipWaiting()));
