@@ -1,6 +1,7 @@
 // Garde l'appli dans le téléphone pour qu'elle s'ouvre sans réseau.
 // Changer VERSION à chaque mise en ligne d'une nouvelle version.
 const VERSION = "expertfr-v7";
+const PREFIXE = "expertfr-";   // ne touche jamais au cache de l'appli Bondoux (même site)
 const FICHIERS = ["./", "index.html", "app.js", "dictee.js", "photos.js", "data.js", "manifest.webmanifest", "icon-192.png", "icon-512.png"];
 
 self.addEventListener("install", e => {
@@ -8,7 +9,7 @@ self.addEventListener("install", e => {
 });
 
 self.addEventListener("activate", e => {
-  e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== VERSION).map(k => caches.delete(k))))
+  e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k.startsWith(PREFIXE) && k !== VERSION).map(k => caches.delete(k))))
     .then(() => self.clients.claim()));
 });
 
