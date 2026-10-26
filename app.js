@@ -10,7 +10,7 @@
 
 const FICHIER = "expertfr_clients.json";
 const SCOPE = "https://www.googleapis.com/auth/drive";
-const LS = { clients: "efr_clients", dirty: "efr_dirty", cfg: "efr_cfg", token: "efr_token", last: "efr_last" };
+const LS = { clients: "efr_clients", dirty: "efr_dirty", cfg: "efr_cfg", token: "efr_token", last: "efr_last", appel: "efr_appel" };
 
 // ── Stockage local ────────────────────────────────────────────────────────
 function lire(k, def) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : def; } catch (e) { return def; } }
@@ -225,6 +225,7 @@ function rendre() {
   document.getElementById("back").hidden = r.vue !== "fiche";
   if (r.vue === "fiche") rendreFiche(r);
   else if (r.vue === "nouveau") rendreNouveau();
+  else if (r.vue === "appel") rendreAppel();
   else if (r.vue === "reglages") rendreReglages();
   else rendreListe();
   afficherSync();
@@ -348,6 +349,20 @@ function calculerHT(d) {
 }
 const euros = n => n.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
 
+// Les 7 listes du barème, préremplies avec les choix déjà faits
+function selectsDevis(d) {
+  return DATA.DEVIS.map(([k, lbl, map]) => `<label>${lbl}</label><select data-d="${k}">${Object.keys(map).map(o => `<option${o === d[k] ? " selected" : ""}>${esc(o)}</option>`).join("")}</select>`).join("");
+}
+
+// Devis tel qu'enregistré dans la fiche : choix non touchés = 1re option, comme le calcul
+function devisComplet(d) {
+  const nd = { ...d };
+  for (const [k, , map] of DATA.DEVIS) if (!nd[k]) nd[k] = Object.keys(map)[0];
+  nd.calc_corps_liste = nd.calc_corps_liste || [];
+  nd.montant_ht = calculerHT(nd);
+  return nd;
+}
+
 function rendreDevis(c, $c) {
   const d = c.devis || {};
   const ht = calculerHT(d);
@@ -355,7 +370,7 @@ function rendreDevis(c, $c) {
   const labelsNb = Object.keys(DATA.DEVIS[2][2]);
   const nbChoisi = labelsNb.indexOf(d.calc_corps || labelsNb[0]) + 1;
   $c.innerHTML = `<div class="card">
-    ${DATA.DEVIS.map(([k, lbl, map]) => `<label>${lbl}</label><select data-d="${k}">${Object.keys(map).map(o => `<option${o === d[k] ? " selected" : ""}>${esc(o)}</option>`).join("")}</select>`).join("")}
+    ${selectsDevis(d)}
     ${coches && Math.min(coches, 5) !== nbChoisi ? `<div class="warn">⚠ ${coches} corps d'état cochés dans la checklist, mais « ${esc(d.calc_corps || labelsNb[0])} » choisi ici</div>` : ""}
     </div>
     <div class="card">
@@ -365,15 +380,55 @@ function rendreDevis(c, $c) {
       <p class="muted">${c.devis ? "Devis enregistré dans la fiche, retrouvé sur le PC." : "Choisissez les options : le devis s'enregistre dans la fiche."}</p>
     </div>`;
   $c.querySelectorAll("[data-d]").forEach(sel => sel.onchange = () => {
-    const nd = { ...(c.devis || {}) };
-    for (const [k, , map] of DATA.DEVIS) if (!nd[k]) nd[k] = Object.keys(map)[0];
-    nd[sel.dataset.d] = sel.value;
-    nd.calc_corps_liste = nd.calc_corps_liste || [];
-    nd.montant_ht = calculerHT(nd);
-    c.devis = nd;
+    c.devis = devisComplet({ ...(c.devis || {}), [sel.dataset.d]: sel.value });
     enregistrer(c);
     rendreDevis(c, $c);
   });
+}
+
+// ── Appel client : prix et identité sur un seul écran ─────────────────────
+// Pendant l'appel, on règle le devis puis on note le nom. Le brouillon reste
+// dans le téléphone (même si on change d'appli) mais aucune fiche n'est créée
+// avant « Créer la fiche » : un appel sans suite ne laisse rien dans la liste.
+const CHAMPS_APPEL = [["nom", "Nom"], ["prenom", "Prénom"], ["tel", "Téléphone", "tel"], ["mail", "Email", "email"], ["ville_site", "Ville du chantier"]];
+
+function rendreAppel() {
+  document.getElementById("title").textContent = "Appel client";
+  const a = lire(LS.appel, { devis: {} });
+  const sauver = () => ecrire(LS.appel, a);
+  const prix = () => {
+    const ht = calculerHT(a.devis);
+    document.getElementById("ttc").textContent = euros(ht * 1.2);
+    document.getElementById("ht").textContent = `${euros(ht)} HT · TVA ${euros(ht * 0.2)}`;
+  };
+  $main.innerHTML = `
+    <div class="card prix"><div class="total big"><span>Total TTC</span><span id="ttc"></span></div><div class="muted" id="ht"></div></div>
+    <div class="card">${selectsDevis(a.devis)}</div>
+    <div class="card">
+      ${CHAMPS_APPEL.map(([k, lbl, type]) => `<div><label>${lbl}</label><input data-k="${k}" type="${type || "text"}" value="${esc(a[k])}"${k === "nom" ? ' autocapitalize="characters"' : ""}></div>`).join("")}
+      <div><label>Objet de l'expertise</label><textarea data-k="objet">${esc(a.objet)}</textarea></div>
+    </div>
+    <button class="btn" id="creer">💾 Créer la fiche avec ce devis</button>
+    <p class="muted">La fiche prendra le n° ${esc(prochainDossier())}. L'adresse se complète ensuite dans la fiche.</p>
+    <button class="btn light" id="vider">🧹 Effacer (appel sans suite)</button>`;
+  prix();
+  $main.querySelectorAll("[data-d]").forEach(sel => sel.onchange = () => { a.devis[sel.dataset.d] = sel.value; sauver(); prix(); });
+  $main.querySelectorAll("[data-k]").forEach(el => el.oninput = () => { a[el.dataset.k] = el.dataset.k === "nom" ? el.value.toUpperCase() : el.value; sauver(); });
+  document.getElementById("creer").onclick = () => {
+    if (!a.nom || !a.nom.trim()) { toast("Saisissez au moins le nom"); $main.querySelector('[data-k="nom"]').focus(); return; }
+    const c = { uid: newUid(), date: new Date().toLocaleDateString("fr-FR"), dossier: prochainDossier(), statut: "En attente" };
+    for (const [k] of [...CHAMPS_APPEL, ["objet"]]) if (a[k] && a[k].trim()) c[k] = a[k].trim();
+    c.devis = devisComplet(a.devis);
+    enregistrer(c);
+    localStorage.removeItem(LS.appel);
+    toast(`Fiche ${c.dossier} créée avec son devis`);
+    location.hash = `#/fiche/${c.uid}`;
+  };
+  document.getElementById("vider").onclick = () => {
+    if (!confirm("Effacer ce devis et les informations saisies ?")) return;
+    localStorage.removeItem(LS.appel);
+    rendreAppel();
+  };
 }
 
 // ── Checklist (même bibliothèque et mêmes identifiants que le PC) ─────────
